@@ -15,10 +15,13 @@ struct State {
     SourcePos pos;
     UserState user;
     size_t index = 0;
+    std::string_view source_name;
 
     State() = default;
-    State(std::string_view inp, SourcePos p, UserState u, size_t idx = 0)
-        : input(inp), pos(std::move(p)), user(std::move(u)), index(idx) {}
+    State(std::string_view inp, SourcePos p, UserState u, size_t idx = 0,
+          std::string_view src_name = "")
+        : input(inp), pos(std::move(p)), user(std::move(u)), index(idx),
+          source_name(src_name) {}
 
     std::string_view remaining() const {
         return input.substr(index);
@@ -32,10 +35,13 @@ struct State<NoUserState> {
     SourcePos pos;
     NoUserState user{};
     size_t index = 0;
+    std::string_view source_name;
 
     State() = default;
-    State(std::string_view inp, SourcePos p, NoUserState u = {}, size_t idx = 0)
-        : input(inp), pos(std::move(p)), user(u), index(idx) {}
+    State(std::string_view inp, SourcePos p, NoUserState u = {}, size_t idx = 0,
+          std::string_view src_name = "")
+        : input(inp), pos(std::move(p)), user(u), index(idx),
+          source_name(src_name) {}
 
     std::string_view remaining() const {
         return input.substr(index);

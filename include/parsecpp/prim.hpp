@@ -236,7 +236,7 @@ inline SourcePos scan_pos(SourcePos pos, std::string_view input, size_t from, si
         else if (c == '\t') { col += 8 - ((col - 1) % 8); }
         else { ++col; }
     }
-    return SourcePos{line, col, pos.name};
+    return SourcePos{line, col};
 }
 
 } // namespace detail
@@ -274,14 +274,11 @@ Parser<std::string, UserState> take_while1(std::function<bool(char)> pred) {
             ++end;
         }
         if (end == idx) {
-            if (idx >= state.input.size()) {
-                return ParseResult<std::string, UserState>::error_empty(
-                    ParseError::with_message(state.pos, MessageType::SysUnExpect, "")
-                );
-            }
-            std::string tok_str(1, state.input[idx]);
+            auto tok_msg = idx < state.input.size()
+                ? "'" + std::string(1, state.input[idx]) + "'"
+                : std::string{};
             return ParseResult<std::string, UserState>::error_empty(
-                ParseError::with_message(state.pos, MessageType::SysUnExpect, "'" + tok_str + "'")
+                ParseError::with_message(state.pos, MessageType::SysUnExpect, std::move(tok_msg))
             );
         }
         std::string matched(state.input.substr(idx, end - idx));
@@ -326,13 +323,15 @@ std::expected<T, ParseError> run_parser(
     UserState user_state = UserState{},
     std::string_view source_name = ""
 ) {
-    State<UserState> initial{input, initial_pos(source_name), std::move(user_state), 0};
+    State<UserState> initial{input, SourcePos{1, 1}, std::move(user_state), 0, source_name};
     auto res = p(initial);
 
     if (res.is_ok()) {
         return std::get<Ok<T, UserState>>(res.reply).value;
     }
-    return std::unexpected(std::get<Err>(res.reply).error);
+    auto err = std::get<Err>(res.reply).error;
+    err.source_name = std::string(source_name);
+    return std::unexpected(std::move(err));
 }
 
 // --- parse_or_throw ---

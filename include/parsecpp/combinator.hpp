@@ -313,6 +313,8 @@ scan_op_chain(Parser<T, UserState> term_parser, Parser<std::function<T(T, T)>, U
 
             auto& ok_first = std::get<Ok<T, UserState>>(res_first.reply);
             OpChain<T> chain;
+            chain.values.reserve(4);
+            chain.ops.reserve(4);
             chain.values.push_back(std::move(ok_first.value));
             State<UserState> curr_state = std::move(ok_first.state);
             bool consumed = res_first.consumed;

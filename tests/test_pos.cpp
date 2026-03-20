@@ -5,10 +5,9 @@
 using namespace parsecpp;
 
 TEST_CASE("SourcePos initial position", "[pos]") {
-    auto pos = initial_pos("test.txt");
+    SourcePos pos;
     REQUIRE(pos.line == 1);
     REQUIRE(pos.column == 1);
-    REQUIRE(pos.name_str() == "test.txt");
 }
 
 TEST_CASE("SourcePos comparison", "[pos]") {

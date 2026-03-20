@@ -29,6 +29,7 @@ struct Message {
 class ParseError {
 public:
     SourcePos pos;
+    std::string source_name;
     std::vector<Message> messages;
 
     ParseError() = default;
@@ -76,10 +77,17 @@ public:
     }
 
     std::string format() const {
-        if (messages.empty()) {
+        auto format_location = [this]() -> std::string {
             std::ostringstream os;
-            os << "Unknown parse error at " << pos;
+            if (!source_name.empty()) {
+                os << '"' << source_name << "\" ";
+            }
+            os << pos;
             return os.str();
+        };
+
+        if (messages.empty()) {
+            return "Unknown parse error at " + format_location();
         }
 
         std::vector<std::string> expects, unexpects, others;
@@ -108,7 +116,7 @@ public:
         dedup(others);
 
         std::ostringstream os;
-        os << "Parse error at " << pos << ": ";
+        os << "Parse error at " << format_location() << ": ";
 
         std::vector<std::string> parts;
 

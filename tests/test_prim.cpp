@@ -30,7 +30,7 @@ TEST_CASE("try_parse backtracks on consumed error", "[prim]") {
 
 TEST_CASE("look_ahead does not consume input", "[prim]") {
     auto p = look_ahead(char_('a'));
-    State<> state{"abc", initial_pos(), {}, 0};
+    State<> state{"abc", SourcePos{1, 1}, {}, 0};
     auto res = p(state);
     REQUIRE(res.is_ok());
     REQUIRE(!res.consumed); // Must not consume
@@ -139,7 +139,7 @@ TEST_CASE("Prim properties", "[prim][property]") {
         []() {
             auto s = *rc::gen::string<std::string>();
             auto p = try_parse(string_("xyz_impossible_match"));
-            State<> state{s, initial_pos(), {}, 0};
+            State<> state{s, SourcePos{1, 1}, {}, 0};
             auto res = p(state);
             RC_ASSERT(!res.consumed || res.is_ok());
         });
@@ -149,7 +149,7 @@ TEST_CASE("Prim properties", "[prim][property]") {
             auto c = *rc::gen::inRange(static_cast<char>('a'), static_cast<char>('z'));
             std::string input(1, c);
             auto p = look_ahead(satisfy(std::function<bool(char)>([c](char x) { return x == c; })));
-            State<> state{input, initial_pos(), {}, 0};
+            State<> state{input, SourcePos{1, 1}, {}, 0};
             auto res = p(state);
             if (res.is_ok()) {
                 RC_ASSERT(!res.consumed);
