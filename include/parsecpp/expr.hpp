@@ -77,6 +77,16 @@ Parser<T> make_level_parser(const std::vector<Operator<T>>& ops, Parser<T> term)
         });
     });
 
+    // Build ambiguity checker from all infix ops before any are moved
+    Parser<std::function<T(T, T)>> ambig_op = fail<std::function<T(T, T)>>("no ops");
+    if (!infix_n.empty()) {
+        std::vector<Parser<std::function<T(T, T)>>> all_infix;
+        all_infix.insert(all_infix.end(), infix_r.begin(), infix_r.end());
+        all_infix.insert(all_infix.end(), infix_l.begin(), infix_l.end());
+        all_infix.insert(all_infix.end(), infix_n.begin(), infix_n.end());
+        ambig_op = try_parse(choice(std::move(all_infix)));
+    }
+
     // Apply infix operators
     Parser<T> result_parser = term_parser;
 
@@ -92,10 +102,13 @@ Parser<T> make_level_parser(const std::vector<Operator<T>>& ops, Parser<T> term)
 
     if (!infix_n.empty()) {
         auto op_n = choice(std::move(infix_n));
-        result_parser = result_parser.bind([op_n, result_parser](T x) {
-            return (op_n.bind([x, result_parser](std::function<T(T, T)> f) {
-                return result_parser.map([x, f](T y) {
-                    return f(x, y);
+        result_parser = result_parser.bind([op_n, result_parser, ambig_op](T x) {
+            return (op_n.bind([x, result_parser, ambig_op](std::function<T(T, T)> f) {
+                return result_parser.bind([x, f, ambig_op](T y) {
+                    // Reject ambiguous chaining after x op y
+                    return (ambig_op.bind([](auto) {
+                        return fail<T>("ambiguous use of a non-associative operator");
+                    })) | pure<T>(f(x, y));
                 });
             })) | pure<T>(x);
         });

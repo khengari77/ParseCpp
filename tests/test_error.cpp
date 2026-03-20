@@ -5,20 +5,20 @@
 using namespace parsecpp;
 
 TEST_CASE("ParseError unknown", "[error]") {
-    auto err = ParseError::unknown(SourcePos{1, 1, ""});
+    auto err = ParseError::unknown(SourcePos{1, 1});
     REQUIRE(err.is_unknown());
     REQUIRE(err.format().find("Unknown") != std::string::npos);
 }
 
 TEST_CASE("ParseError with message", "[error]") {
-    auto err = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::Expect, "'a'");
+    auto err = ParseError::with_message(SourcePos{1, 1}, MessageType::Expect, "'a'");
     REQUIRE(!err.is_unknown());
     REQUIRE(err.format().find("expecting 'a'") != std::string::npos);
 }
 
 TEST_CASE("ParseError merge unknown prefers known", "[error]") {
-    auto unknown = ParseError::unknown(SourcePos{1, 1, ""});
-    auto known = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::Expect, "'a'");
+    auto unknown = ParseError::unknown(SourcePos{1, 1});
+    auto known = ParseError::with_message(SourcePos{1, 1}, MessageType::Expect, "'a'");
 
     auto m1 = ParseError::merge(unknown, known);
     REQUIRE(!m1.is_unknown());
@@ -28,8 +28,8 @@ TEST_CASE("ParseError merge unknown prefers known", "[error]") {
 }
 
 TEST_CASE("ParseError merge furthest position wins", "[error]") {
-    auto e1 = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::Expect, "'a'");
-    auto e2 = ParseError::with_message(SourcePos{1, 5, ""}, MessageType::Expect, "'b'");
+    auto e1 = ParseError::with_message(SourcePos{1, 1}, MessageType::Expect, "'a'");
+    auto e2 = ParseError::with_message(SourcePos{1, 5}, MessageType::Expect, "'b'");
 
     auto merged = ParseError::merge(e1, e2);
     REQUIRE(merged.pos.column == 5);
@@ -37,8 +37,8 @@ TEST_CASE("ParseError merge furthest position wins", "[error]") {
 }
 
 TEST_CASE("ParseError merge same position combines messages", "[error]") {
-    auto e1 = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::Expect, "'a'");
-    auto e2 = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::Expect, "'b'");
+    auto e1 = ParseError::with_message(SourcePos{1, 1}, MessageType::Expect, "'a'");
+    auto e2 = ParseError::with_message(SourcePos{1, 1}, MessageType::Expect, "'b'");
 
     auto merged = ParseError::merge(e1, e2);
     REQUIRE(merged.messages.size() == 2);
@@ -48,12 +48,12 @@ TEST_CASE("ParseError merge same position combines messages", "[error]") {
 }
 
 TEST_CASE("ParseError unexpected formatting", "[error]") {
-    auto err = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::SysUnExpect, "x");
+    auto err = ParseError::with_message(SourcePos{1, 1}, MessageType::SysUnExpect, "x");
     REQUIRE(err.format().find("unexpected x") != std::string::npos);
 }
 
 TEST_CASE("ParseError unexpected end of input", "[error]") {
-    auto err = ParseError::with_message(SourcePos{1, 1, ""}, MessageType::SysUnExpect, "");
+    auto err = ParseError::with_message(SourcePos{1, 1}, MessageType::SysUnExpect, "");
     REQUIRE(err.format().find("unexpected end of input") != std::string::npos);
 }
 
@@ -61,7 +61,7 @@ TEST_CASE("ParseError unexpected end of input", "[error]") {
 TEST_CASE("ParseError merge properties", "[error][property]") {
     rc::check("merge with unknown is identity",
         []() {
-            auto pos = SourcePos{*rc::gen::inRange(1, 100), *rc::gen::inRange(1, 100), ""};
+            auto pos = SourcePos{*rc::gen::inRange(1, 100), *rc::gen::inRange(1, 100)};
             auto err = ParseError::with_message(pos, MessageType::Expect, "x");
             auto unknown = ParseError::unknown(pos);
 
@@ -73,7 +73,7 @@ TEST_CASE("ParseError merge properties", "[error][property]") {
 
     rc::check("merge at same position combines messages",
         []() {
-            auto pos = SourcePos{1, 1, ""};
+            auto pos = SourcePos{1, 1};
             auto n = *rc::gen::inRange(1, 5);
             ParseError acc = ParseError::unknown(pos);
             for (int i = 0; i < n; ++i) {

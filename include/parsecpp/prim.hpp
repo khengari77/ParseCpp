@@ -168,10 +168,14 @@ Parser<std::vector<T>, UserState> many(Parser<T, UserState> p) {
 template <typename T, typename UserState = NoUserState>
 Parser<std::vector<T>, UserState> many1(Parser<T, UserState> p) {
     return p.bind([p](T x) {
-        return many(p).map([x = std::move(x)](std::vector<T> xs) {
-            xs.insert(xs.begin(), std::move(x));
-            return xs;
-        });
+        return detail::many_accum<T, std::vector<T>, UserState>(
+            [](T item, std::vector<T> lst) {
+                lst.push_back(std::move(item));
+                return lst;
+            },
+            p,
+            std::vector<T>{std::move(x)}
+        );
     });
 }
 
@@ -221,6 +225,22 @@ Parser<std::string, UserState> tokens(std::string_view to_match) {
 
 // --- take_while / take_while1 ---
 
+namespace detail {
+
+inline SourcePos scan_pos(SourcePos pos, std::string_view input, size_t from, size_t to) {
+    int line = pos.line;
+    int col = pos.column;
+    for (size_t i = from; i < to; ++i) {
+        char c = input[i];
+        if (c == '\n') { ++line; col = 1; }
+        else if (c == '\t') { col += 8 - ((col - 1) % 8); }
+        else { ++col; }
+    }
+    return SourcePos{line, col, pos.name};
+}
+
+} // namespace detail
+
 template <typename UserState = NoUserState>
 Parser<std::string, UserState> take_while(std::function<bool(char)> pred) {
     return Parser<std::string, UserState>([pred = std::move(pred)](const State<UserState>& state) -> ParseResult<std::string, UserState> {
@@ -235,7 +255,7 @@ Parser<std::string, UserState> take_while(std::function<bool(char)> pred) {
             );
         }
         std::string matched(state.input.substr(idx, end - idx));
-        auto new_pos = update_pos_string(state.pos, matched);
+        auto new_pos = detail::scan_pos(state.pos, state.input, idx, end);
         auto ghost_err = ParseError::unknown(new_pos);
         State<UserState> new_state{state.input, std::move(new_pos), state.user, end};
         return ParseResult<std::string, UserState>::ok_consumed(
@@ -265,7 +285,7 @@ Parser<std::string, UserState> take_while1(std::function<bool(char)> pred) {
             );
         }
         std::string matched(state.input.substr(idx, end - idx));
-        auto new_pos = update_pos_string(state.pos, matched);
+        auto new_pos = detail::scan_pos(state.pos, state.input, idx, end);
         auto ghost_err = ParseError::unknown(new_pos);
         State<UserState> new_state{state.input, std::move(new_pos), state.user, end};
         return ParseResult<std::string, UserState>::ok_consumed(

@@ -120,15 +120,21 @@ public:
 
             // res1 is Empty Error
             auto res2 = (*other_fn)(state);
+            auto& err1 = std::get<Err>(res1.reply).error;
 
-            if (!res2.consumed && res2.is_error()) {
-                auto merged = ParseError::merge(
-                    std::get<Err>(res1.reply).error,
-                    std::get<Err>(res2.reply).error
-                );
-                return result_type::error_empty(std::move(merged));
+            if (!res2.consumed) {
+                if (res2.is_error()) {
+                    auto merged = ParseError::merge(err1, std::get<Err>(res2.reply).error);
+                    return result_type::error_empty(std::move(merged));
+                }
+                // Empty success — merge ghost errors from res1
+                auto& ok2 = std::get<Ok<T, UserState>>(res2.reply);
+                auto merged = ParseError::merge(err1, ok2.error);
+                return result_type{
+                    Ok<T, UserState>{std::move(ok2.value), std::move(ok2.state), std::move(merged)},
+                    false
+                };
             }
-
             return res2;
         });
     }
@@ -211,7 +217,7 @@ public:
     Parser<std::tuple<T, U>, UserState> operator&(const Parser<U, UserState>& other) const {
         return this->bind([other](T val_t) {
             return other.map([val_t = std::move(val_t)](U val_u) {
-                return std::make_tuple(std::move(val_t), std::move(val_u));
+                return std::make_tuple(val_t, std::move(val_u));
             });
         });
     }

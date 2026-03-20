@@ -4,7 +4,6 @@
 
 #include <functional>
 #include <optional>
-#include <variant>
 #include <vector>
 
 namespace parsecpp {
@@ -296,21 +295,25 @@ Parser<T, UserState> chainl(
 
 namespace detail {
 
-template <typename T, typename UserState>
-Parser<std::vector<std::variant<T, std::function<T(T, T)>>>, UserState>
-scan_op_chain(Parser<T, UserState> term_parser, Parser<std::function<T(T, T)>, UserState> op_parser) {
-    using Item = std::variant<T, std::function<T(T, T)>>;
+template <typename T>
+struct OpChain {
+    std::vector<T> values;
+    std::vector<std::function<T(T, T)>> ops;
+};
 
-    return Parser<std::vector<Item>, UserState>(
-        [term_parser, op_parser](const State<UserState>& state) -> ParseResult<std::vector<Item>, UserState> {
+template <typename T, typename UserState>
+Parser<OpChain<T>, UserState>
+scan_op_chain(Parser<T, UserState> term_parser, Parser<std::function<T(T, T)>, UserState> op_parser) {
+    return Parser<OpChain<T>, UserState>(
+        [term_parser, op_parser](const State<UserState>& state) -> ParseResult<OpChain<T>, UserState> {
             auto res_first = term_parser(state);
             if (res_first.is_error()) {
-                return ParseResult<std::vector<Item>, UserState>{std::get<Err>(res_first.reply), res_first.consumed};
+                return ParseResult<OpChain<T>, UserState>{std::get<Err>(res_first.reply), res_first.consumed};
             }
 
             auto& ok_first = std::get<Ok<T, UserState>>(res_first.reply);
-            std::vector<Item> results;
-            results.push_back(Item{std::move(ok_first.value)});
+            OpChain<T> chain;
+            chain.values.push_back(std::move(ok_first.value));
             State<UserState> curr_state = std::move(ok_first.state);
             bool consumed = res_first.consumed;
             ParseError err = std::move(ok_first.error);
@@ -319,16 +322,16 @@ scan_op_chain(Parser<T, UserState> term_parser, Parser<std::function<T(T, T)>, U
                 auto res_op = op_parser(curr_state);
                 if (res_op.is_error()) {
                     if (res_op.consumed) {
-                        return ParseResult<std::vector<Item>, UserState>{std::get<Err>(res_op.reply), true};
+                        return ParseResult<OpChain<T>, UserState>{std::get<Err>(res_op.reply), true};
                     }
                     auto final_err = ParseError::merge(err, std::get<Err>(res_op.reply).error);
                     if (consumed) {
-                        return ParseResult<std::vector<Item>, UserState>::ok_consumed(
-                            std::move(results), std::move(curr_state), std::move(final_err)
+                        return ParseResult<OpChain<T>, UserState>::ok_consumed(
+                            std::move(chain), std::move(curr_state), std::move(final_err)
                         );
                     }
-                    return ParseResult<std::vector<Item>, UserState>::ok_empty(
-                        std::move(results), std::move(curr_state), std::move(final_err)
+                    return ParseResult<OpChain<T>, UserState>::ok_empty(
+                        std::move(chain), std::move(curr_state), std::move(final_err)
                     );
                 }
 
@@ -339,14 +342,14 @@ scan_op_chain(Parser<T, UserState> term_parser, Parser<std::function<T(T, T)>, U
                     bool final_consumed = consumed || res_op.consumed || res_next.consumed;
                     auto merged_err = ParseError::merge(ok_op.error, std::get<Err>(res_next.reply).error);
                     if (res_next.consumed) {
-                        return ParseResult<std::vector<Item>, UserState>{std::get<Err>(res_next.reply), true};
+                        return ParseResult<OpChain<T>, UserState>{std::get<Err>(res_next.reply), true};
                     }
-                    return ParseResult<std::vector<Item>, UserState>{Err{std::move(merged_err)}, final_consumed};
+                    return ParseResult<OpChain<T>, UserState>{Err{std::move(merged_err)}, final_consumed};
                 }
 
                 auto& ok_next = std::get<Ok<T, UserState>>(res_next.reply);
-                results.push_back(Item{std::move(ok_op.value)});
-                results.push_back(Item{std::move(ok_next.value)});
+                chain.ops.push_back(std::move(ok_op.value));
+                chain.values.push_back(std::move(ok_next.value));
                 curr_state = std::move(ok_next.state);
                 consumed = consumed || res_op.consumed || res_next.consumed;
                 err = std::move(ok_next.error);
@@ -362,18 +365,14 @@ Parser<T, UserState> chainr1(
     Parser<T, UserState> p,
     Parser<std::function<T(T, T)>, UserState> op
 ) {
-    using Item = std::variant<T, std::function<T(T, T)>>;
-
-    return detail::scan_op_chain(std::move(p), std::move(op)).map([](std::vector<Item> items) -> T {
-        if (items.empty()) {
+    return detail::scan_op_chain(std::move(p), std::move(op)).map([](detail::OpChain<T> chain) -> T {
+        if (chain.values.empty()) {
             throw std::logic_error("chainr1: empty chain");
         }
 
-        T acc = std::get<T>(std::move(items.back()));
-        for (int i = static_cast<int>(items.size()) - 2; i >= 0; i -= 2) {
-            auto& op_func = std::get<std::function<T(T, T)>>(items[i]);
-            T left_val = std::get<T>(std::move(items[i - 1]));
-            acc = op_func(std::move(left_val), std::move(acc));
+        T acc = std::move(chain.values.back());
+        for (int i = static_cast<int>(chain.ops.size()) - 1; i >= 0; --i) {
+            acc = chain.ops[i](std::move(chain.values[i]), std::move(acc));
         }
         return acc;
     });

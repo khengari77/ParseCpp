@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <compare>
 #include <ostream>
-#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -48,9 +47,9 @@ public:
     }
 
     ParseError set_messages(std::vector<Message> msgs) const {
-        // Deduplicate and sort
-        std::set<Message> unique(msgs.begin(), msgs.end());
-        return ParseError{pos, std::vector<Message>(unique.begin(), unique.end())};
+        std::sort(msgs.begin(), msgs.end());
+        msgs.erase(std::unique(msgs.begin(), msgs.end()), msgs.end());
+        return ParseError{pos, std::move(msgs)};
     }
 
     static ParseError unknown(SourcePos p) {
@@ -69,9 +68,11 @@ public:
         if (e2.pos > e1.pos) return e2;
 
         // Same position — combine messages
-        std::set<Message> combined(e1.messages.begin(), e1.messages.end());
-        combined.insert(e2.messages.begin(), e2.messages.end());
-        return ParseError{e1.pos, std::vector<Message>(combined.begin(), combined.end())};
+        std::vector<Message> combined = e1.messages;
+        combined.insert(combined.end(), e2.messages.begin(), e2.messages.end());
+        std::sort(combined.begin(), combined.end());
+        combined.erase(std::unique(combined.begin(), combined.end()), combined.end());
+        return ParseError{e1.pos, std::move(combined)};
     }
 
     std::string format() const {
@@ -81,22 +82,30 @@ public:
             return os.str();
         }
 
-        std::set<std::string> expects, unexpects, others;
+        std::vector<std::string> expects, unexpects, others;
 
         for (const auto& m : messages) {
             switch (m.type) {
                 case MessageType::Expect:
-                    expects.insert(m.text);
+                    expects.push_back(m.text);
                     break;
                 case MessageType::SysUnExpect:
                 case MessageType::UnExpect:
-                    unexpects.insert(m.text);
+                    unexpects.push_back(m.text);
                     break;
                 case MessageType::Msg:
-                    others.insert(m.text);
+                    others.push_back(m.text);
                     break;
             }
         }
+
+        auto dedup = [](std::vector<std::string>& v) {
+            std::sort(v.begin(), v.end());
+            v.erase(std::unique(v.begin(), v.end()), v.end());
+        };
+        dedup(expects);
+        dedup(unexpects);
+        dedup(others);
 
         std::ostringstream os;
         os << "Parse error at " << pos << ": ";
@@ -104,7 +113,7 @@ public:
         std::vector<std::string> parts;
 
         if (!unexpects.empty()) {
-            if (unexpects.size() == 1 && unexpects.begin()->empty()) {
+            if (unexpects.size() == 1 && unexpects.front().empty()) {
                 parts.push_back("unexpected end of input");
             } else {
                 std::ostringstream u;

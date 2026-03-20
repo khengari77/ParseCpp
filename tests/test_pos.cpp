@@ -8,13 +8,13 @@ TEST_CASE("SourcePos initial position", "[pos]") {
     auto pos = initial_pos("test.txt");
     REQUIRE(pos.line == 1);
     REQUIRE(pos.column == 1);
-    REQUIRE(pos.name == "test.txt");
+    REQUIRE(pos.name_str() == "test.txt");
 }
 
 TEST_CASE("SourcePos comparison", "[pos]") {
-    SourcePos a{1, 5, ""};
-    SourcePos b{1, 10, ""};
-    SourcePos c{2, 1, ""};
+    SourcePos a{1, 5};
+    SourcePos b{1, 10};
+    SourcePos c{2, 1};
 
     REQUIRE(a < b);
     REQUIRE(b < c);
@@ -24,40 +24,40 @@ TEST_CASE("SourcePos comparison", "[pos]") {
 }
 
 TEST_CASE("update_pos_char regular character", "[pos]") {
-    auto pos = update_pos_char(SourcePos{1, 1, ""}, 'a');
+    auto pos = update_pos_char(SourcePos{1, 1}, 'a');
     REQUIRE(pos.line == 1);
     REQUIRE(pos.column == 2);
 }
 
 TEST_CASE("update_pos_char newline", "[pos]") {
-    auto pos = update_pos_char(SourcePos{1, 5, ""}, '\n');
+    auto pos = update_pos_char(SourcePos{1, 5}, '\n');
     REQUIRE(pos.line == 2);
     REQUIRE(pos.column == 1);
 }
 
 TEST_CASE("update_pos_char tab", "[pos]") {
-    auto pos = update_pos_char(SourcePos{1, 1, ""}, '\t');
+    auto pos = update_pos_char(SourcePos{1, 1}, '\t');
     REQUIRE(pos.line == 1);
     REQUIRE(pos.column == 9); // tab to next multiple of 8 + 1
 
-    pos = update_pos_char(SourcePos{1, 5, ""}, '\t');
+    pos = update_pos_char(SourcePos{1, 5}, '\t');
     REQUIRE(pos.column == 9);
 }
 
 TEST_CASE("update_pos_string simple", "[pos]") {
-    auto pos = update_pos_string(SourcePos{1, 1, ""}, "hello");
+    auto pos = update_pos_string(SourcePos{1, 1}, "hello");
     REQUIRE(pos.line == 1);
     REQUIRE(pos.column == 6);
 }
 
 TEST_CASE("update_pos_string with newlines", "[pos]") {
-    auto pos = update_pos_string(SourcePos{1, 1, ""}, "ab\ncd\nef");
+    auto pos = update_pos_string(SourcePos{1, 1}, "ab\ncd\nef");
     REQUIRE(pos.line == 3);
     REQUIRE(pos.column == 3);
 }
 
 TEST_CASE("update_pos_string empty", "[pos]") {
-    auto pos = update_pos_string(SourcePos{3, 7, ""}, "");
+    auto pos = update_pos_string(SourcePos{3, 7}, "");
     REQUIRE(pos.line == 3);
     REQUIRE(pos.column == 7);
 }
@@ -73,7 +73,7 @@ TEST_CASE("SourcePos properties", "[pos][property]") {
                     filtered += c;
                 }
             }
-            auto pos = update_pos_string(SourcePos{1, 1, ""}, filtered);
+            auto pos = update_pos_string(SourcePos{1, 1}, filtered);
             RC_ASSERT(pos.line == 1);
             RC_ASSERT(pos.column == 1 + static_cast<int>(filtered.size()));
         });
@@ -82,7 +82,7 @@ TEST_CASE("SourcePos properties", "[pos][property]") {
         []() {
             auto n = *rc::gen::inRange(0, 20);
             std::string s(n, '\n');
-            auto pos = update_pos_string(SourcePos{1, 1, ""}, s);
+            auto pos = update_pos_string(SourcePos{1, 1}, s);
             RC_ASSERT(pos.line == 1 + n);
             RC_ASSERT(pos.column == 1);
         });
