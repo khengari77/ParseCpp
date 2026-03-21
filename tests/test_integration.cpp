@@ -97,18 +97,21 @@ namespace calc {
 Parser<double> expr();
 
 Parser<double> number() {
-    return take_while1([](char c) {
+    static Parser<double> p = take_while1([](char c) {
         return std::isdigit(static_cast<unsigned char>(c)) || c == '.';
     }).map([](std::string s) { return std::stod(s); });
+    return p;
 }
 
 Parser<double> factor() {
-    return between(char_('('), char_(')'), lazy<double>([]() { return expr(); }))
-         | number();
+    static Parser<double> p =
+        between(char_('('), char_(')'), lazy<double>([]() { return expr(); }))
+        | number();
+    return p;
 }
 
 Parser<double> expr() {
-    return build_expression_parser<double>(
+    static Parser<double> p = build_expression_parser<double>(
         {
             // Higher precedence first (innermost)
             {
@@ -143,6 +146,7 @@ Parser<double> expr() {
         },
         factor()
     );
+    return p;
 }
 
 } // namespace calc

@@ -15,14 +15,15 @@ Parser<double> number() {
 }
 
 Parser<double> factor() {
-    return spaces() > (
+    static Parser<double> p = spaces() > (
         between(char_('('), char_(')'), lazy<double>([]() { return expr(); }))
         | number()
     );
+    return p;
 }
 
 Parser<double> expr() {
-    return build_expression_parser<double>(
+    static Parser<double> p = build_expression_parser<double>(
         {
             // Higher precedence (innermost): * and /
             {
@@ -57,6 +58,7 @@ Parser<double> expr() {
         },
         factor()
     );
+    return p;
 }
 
 int main() {

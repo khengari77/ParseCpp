@@ -39,11 +39,11 @@ public:
     bool is_unknown() const { return messages.empty(); }
 
     ParseError add_message(Message msg) const {
-        for (const auto& m : messages) {
-            if (m == msg) return *this;
-        }
+        auto it = std::lower_bound(messages.begin(), messages.end(), msg);
+        if (it != messages.end() && *it == msg) return *this;
         auto result = *this;
-        result.messages.push_back(std::move(msg));
+        auto pos_it = result.messages.begin() + (it - messages.begin());
+        result.messages.insert(pos_it, std::move(msg));
         return result;
     }
 
@@ -68,11 +68,14 @@ public:
         if (e1.pos > e2.pos) return e1;
         if (e2.pos > e1.pos) return e2;
 
-        // Same position — combine messages
-        std::vector<Message> combined = e1.messages;
-        combined.insert(combined.end(), e2.messages.begin(), e2.messages.end());
-        std::sort(combined.begin(), combined.end());
-        combined.erase(std::unique(combined.begin(), combined.end()), combined.end());
+        // Same position — linear merge (both vectors are sorted + deduplicated)
+        std::vector<Message> combined;
+        combined.reserve(e1.messages.size() + e2.messages.size());
+        std::set_union(
+            e1.messages.begin(), e1.messages.end(),
+            e2.messages.begin(), e2.messages.end(),
+            std::back_inserter(combined)
+        );
         return ParseError{e1.pos, std::move(combined)};
     }
 
