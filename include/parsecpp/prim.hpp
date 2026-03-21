@@ -274,9 +274,10 @@ Parser<std::string, UserState> take_while1(std::function<bool(char)> pred) {
             ++end;
         }
         if (end == idx) {
-            auto tok_msg = idx < state.input.size()
-                ? "'" + std::string(1, state.input[idx]) + "'"
-                : std::string{};
+            std::string tok_msg;
+            if (idx < state.input.size()) {
+                tok_msg = {'\'', state.input[idx], '\''};
+            }
             return ParseResult<std::string, UserState>::error_empty(
                 ParseError::with_message(state.pos, MessageType::SysUnExpect, std::move(tok_msg))
             );

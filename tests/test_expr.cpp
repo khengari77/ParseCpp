@@ -16,7 +16,7 @@ Parser<int> number() {
 
 // Build a calculator expression parser
 Parser<int> calc_expr() {
-    auto term = lazy<int>([]() -> Parser<int> {
+    static auto term = lazy<int>([]() -> Parser<int> {
         return build_expression_parser<int>(
             {
                 // Higher precedence (applied first = innermost): * and /
